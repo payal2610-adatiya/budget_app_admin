@@ -35,26 +35,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _loadDashboardData();
     });
   }
-
   Future<void> _loadDashboardData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = '';
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
 
     try {
-      final BuildContext? context = this.context;
-      if (context == null || !mounted) return;
-
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
       final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
 
       print('Loading dashboard data...');
 
-      // Load all data in parallel
+      // Load providers first
       await Future.wait([
         userProvider.fetchUsers(),
         transactionProvider.fetchTotalTransactions(),
@@ -65,38 +61,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
       print('DEBUG: Transactions from provider: ${transactionProvider.totalTransactions}');
       print('DEBUG: Categories from provider: ${categoryProvider.totalCategories}');
 
-      // Get admin stats from API
+      // Load admin stats from API
       final statsResult = await ApiService.getAdminStats();
       print('DEBUG: API Response: $statsResult');
 
-      if (statsResult['success'] == true && mounted) {
+      if (!mounted) return;
+
+      if (statsResult['success'] == true) {
         setState(() {
           _stats = {
-            'total_users': statsResult['total_users'] ?? userProvider.users.length,
-            'total_categories': statsResult['total_categories'] ?? categoryProvider.totalCategories,
-            'total_transactions': statsResult['total_transactions'] ?? transactionProvider.totalTransactions,
+            'total_users': statsResult['total_users'],
+            'total_categories': statsResult['total_categories'],
+            'total_transactions': statsResult['total_transactions'],
           };
+          _isLoading = false; // ✅ FIX
         });
-      } else if (mounted) {
-        // Fallback to provider data
+      } else {
+        // fallback to provider data
         setState(() {
           _stats = {
             'total_users': userProvider.users.length,
             'total_categories': categoryProvider.totalCategories,
             'total_transactions': transactionProvider.totalTransactions,
           };
+          _isLoading = false; // ✅ FIX
         });
       }
     } catch (e) {
       print('DEBUG: Error loading dashboard data: $e');
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to load data: $e';
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Failed to load data';
+        _isLoading = false; // ✅ FIX
+      });
     }
   }
+
 
   void _logout() async {
     final confirmed = await showDialog<bool>(
