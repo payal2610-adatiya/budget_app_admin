@@ -1,8 +1,8 @@
+// lib/navigation/main_navigation.dart
 import 'package:flutter/material.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/users/users_list_screen.dart';
 import '../screens/transactions/transactions_screen.dart';
-import '../screens/settings/settings_screen.dart';
 import '../core/constants/app_colors.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -18,9 +18,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const UsersListScreen(),
-
-    const TransactionsScreen(),
-    const SettingsScreen(),
+    const TransactionsScreen(), // Admin can see transaction count
   ];
 
   @override
@@ -62,7 +60,7 @@ class _MainNavigationState extends State<MainNavigation> {
               activeIcon: Icon(Icons.people),
               label: 'Users',
             ),
-           BottomNavigationBarItem(
+            BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long_outlined),
               activeIcon: Icon(Icons.receipt_long),
               label: 'Transactions',

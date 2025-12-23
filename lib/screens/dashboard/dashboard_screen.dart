@@ -1,3 +1,4 @@
+// lib/screens/dashboard/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -7,9 +8,9 @@ import '../../core/widgets/stat_card.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../providers/category_provider.dart';
 import '../../data/services/api_service.dart';
 import '../users/users_list_screen.dart';
-import '../transactions/transactions_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -25,38 +26,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'total_transactions': 0,
   };
   bool _isLoading = true;
+  String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDashboardData();
+    });
   }
 
   Future<void> _loadDashboardData() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final userProvider = context.read<UserProvider>();
-    final transactionProvider = context.read<TransactionProvider>();
-
-    await userProvider.fetchUsers();
-    await transactionProvider.fetchTotalTransactions();
-
-    final statsResult = await ApiService.getAdminStats();
-    if (statsResult['success'] == true) {
+    if (mounted) {
       setState(() {
-        _stats = {
-          'total_users': statsResult['total_users'] ?? 0,
-          'total_categories': statsResult['total_categories'] ?? 0,
-          'total_transactions': statsResult['total_transactions'] ?? 0,
-        };
+        _isLoading = true;
+        _errorMessage = '';
       });
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    try {
+      final BuildContext? context = this.context;
+      if (context == null || !mounted) return;
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+      final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+
+      print('Loading dashboard data...');
+
+      // Load all data in parallel
+      await Future.wait([
+        userProvider.fetchUsers(),
+        transactionProvider.fetchTotalTransactions(),
+        categoryProvider.fetchTotalCategories(),
+      ]);
+
+      print('DEBUG: Users from provider: ${userProvider.users.length}');
+      print('DEBUG: Transactions from provider: ${transactionProvider.totalTransactions}');
+      print('DEBUG: Categories from provider: ${categoryProvider.totalCategories}');
+
+      // Get admin stats from API
+      final statsResult = await ApiService.getAdminStats();
+      print('DEBUG: API Response: $statsResult');
+
+      if (statsResult['success'] == true && mounted) {
+        setState(() {
+          _stats = {
+            'total_users': statsResult['total_users'] ?? userProvider.users.length,
+            'total_categories': statsResult['total_categories'] ?? categoryProvider.totalCategories,
+            'total_transactions': statsResult['total_transactions'] ?? transactionProvider.totalTransactions,
+          };
+        });
+      } else if (mounted) {
+        // Fallback to provider data
+        setState(() {
+          _stats = {
+            'total_users': userProvider.users.length,
+            'total_categories': categoryProvider.totalCategories,
+            'total_transactions': transactionProvider.totalTransactions,
+          };
+        });
+      }
+    } catch (e) {
+      print('DEBUG: Error loading dashboard data: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load data: $e';
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _logout() async {
@@ -101,10 +140,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadDashboardData,
+            tooltip: 'Refresh Data',
           ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
+            tooltip: 'Logout',
           ),
         ],
       ),
@@ -166,9 +207,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 24),
 
+              // Show error message if any
+              if (_errorMessage.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.error),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error, color: AppColors.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage,
+                          style: AppStyles.bodySmall.copyWith(color: AppColors.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // Loading State
               if (_isLoading)
-                const Center(child: CircularProgressIndicator())
+                Container(
+                  padding: const EdgeInsets.all(40),
+                  child: const Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Loading dashboard data...'),
+                    ],
+                  ),
+                )
               else
                 Column(
                   children: [
@@ -182,7 +256,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       childAspectRatio: 1.2,
                       children: [
                         StatCard(
-                          title: 'Total Users', // Fixed: Removed extra space
+                          title: 'Total Users',
                           value: _stats['total_users'].toString(),
                           icon: Icons.people,
                           color: AppColors.primary,
@@ -207,14 +281,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           value: _stats['total_transactions'].toString(),
                           icon: Icons.receipt_long,
                           color: AppColors.error,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const TransactionsScreen(),
-                              ),
-                            );
-                          },
+                          onTap: null,
                         ),
                         StatCard(
                           title: 'Active Users',
@@ -234,106 +301,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Quick Actions - ADDED BACK
-                    Text(
-                      'Quick Actions',
-                      style: AppStyles.headline3,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildQuickActions(),
-                    const SizedBox(height: 24),
-
-                    // Recent Users - ADDED BACK
-                    _buildRecentUsers(userProvider),
-                    const SizedBox(height: 24),
-
-                    // System Info - ADDED BACK
-                    _buildSystemInfo(),
+                    // Recent Users (if any)
+                    if (userProvider.users.isNotEmpty)
+                      _buildRecentUsers(userProvider),
                     const SizedBox(height: 24),
                   ],
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _buildActionButton(
-          icon: Icons.people_alt,
-          label: 'Manage Users',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const UsersListScreen(),
-              ),
-            );
-          },
-        ),
-        _buildActionButton(
-          icon: Icons.bar_chart,
-          label: 'View Stats',
-          onTap: _showStatsDialog,
-        ),
-        _buildActionButton(
-          icon: Icons.settings,
-          label: 'Settings',
-          onTap: () {
-            // Navigate to settings if you have a settings screen
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 110,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: AppStyles.bodyMedium.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );
@@ -370,9 +345,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           if (recentUsers.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('No users found')),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: Colors.grey[300],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No users found',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
             )
           else
             ...recentUsers.map((user) {
@@ -440,134 +431,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }).toList(),
         ],
       ),
-    );
-  }
-
-  Widget _buildSystemInfo() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: AppStyles.cardDecoration,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'System Information',
-            style: AppStyles.headline3.copyWith(fontSize: 18),
-          ),
-          const SizedBox(height: 16),
-          _buildInfoItem('Database', 'Connected', Icons.storage),
-          const SizedBox(height: 12),
-          _buildInfoItem('API Status', 'Online', Icons.cloud_done),
-          const SizedBox(height: 12),
-          _buildInfoItem('Last Sync', DateFormat('hh:mm a').format(DateTime.now()), Icons.sync),
-          const SizedBox(height: 12),
-          _buildInfoItem('Total Data', '${_stats['total_users'] + _stats['total_categories'] + _stats['total_transactions']} Records', Icons.data_usage),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(String title, String value, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              Text(
-                value,
-                style: AppStyles.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showStatsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('System Statistics'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildStatRow('Total Users', _stats['total_users'].toString()),
-              const SizedBox(height: 8),
-              _buildStatRow('Total Categories', _stats['total_categories'].toString()),
-              const SizedBox(height: 8),
-              _buildStatRow('Total Transactions', _stats['total_transactions'].toString()),
-              const SizedBox(height: 8),
-              _buildStatRow('Active Users', context.read<UserProvider>().activeUsersCount.toString()),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                'Last Updated: ${DateFormat('hh:mm:ss a').format(DateTime.now())}',
-                style: AppStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _loadDashboardData();
-            },
-            child: const Text('Refresh'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: AppStyles.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        Text(
-          value,
-          style: AppStyles.bodyLarge.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.primary,
-          ),
-        ),
-      ],
     );
   }
 }

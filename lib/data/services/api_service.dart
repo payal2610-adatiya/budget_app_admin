@@ -21,6 +21,7 @@ class ApiService {
   }
 
   // ============ ADMIN DASHBOARD STATS ============
+  // In ApiService class
   static Future<Map<String, dynamic>> getAdminStats() async {
     try {
       final response = await http.get(
@@ -28,6 +29,7 @@ class ApiService {
       ).timeout(timeout);
 
       final data = _parseResponse(response);
+      print('API Stats Response: $data'); // Debug log
 
       if (response.statusCode == 200 && data['code'] == 200) {
         return {
@@ -35,7 +37,6 @@ class ApiService {
           'total_users': data['total_users'] ?? 0,
           'total_categories': data['total_categories'] ?? 0,
           'total_transactions': data['total_transactions'] ?? 0,
-          'users': (data['users'] as List?)?.map((user) => User.fromJson(user)).toList() ?? [],
         };
       }
 
@@ -44,6 +45,7 @@ class ApiService {
         'message': data['message'] ?? 'Failed to fetch stats',
       };
     } catch (e) {
+      print('ApiService Error: $e');
       return {
         'success': false,
         'message': 'Network error: $e',

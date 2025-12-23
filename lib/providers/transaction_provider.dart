@@ -10,6 +10,7 @@ class TransactionProvider extends ChangeNotifier {
   int get totalTransactions => _totalTransactions;
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
+  int get totalTransactionCount => _totalTransactions; // Fixed: Now returns the actual count
 
   Future<void> fetchTotalTransactions() async {
     _isLoading = true;
@@ -21,6 +22,7 @@ class TransactionProvider extends ChangeNotifier {
 
       if (statsResult['success'] == true) {
         _totalTransactions = statsResult['total_transactions'] ?? 0;
+        print('DEBUG: Fetched transactions: $_totalTransactions');
       } else {
         _errorMessage = statsResult['message'] ?? 'Failed to fetch transaction count';
         _totalTransactions = 0;
