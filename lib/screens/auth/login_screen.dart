@@ -128,27 +128,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   backgroundColor: AppColors.adminPrimary,
                 ),
                 const SizedBox(height: 24),
-                // Note
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: AppColors.warning, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Default: admin@budget.com / admin123',
-                          style: AppStyles.bodySmall.copyWith(color: AppColors.warning),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
+
               ],
             ),
           ),

@@ -172,7 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               else
                 Column(
                   children: [
-                    // Stats Grid - SINGLE GridView (removed duplicate)
+                    // Stats Grid
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -182,7 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       childAspectRatio: 1.2,
                       children: [
                         StatCard(
-                          title: ' Users',
+                          title: 'Total Users', // Fixed: Removed extra space
                           value: _stats['total_users'].toString(),
                           icon: Icons.people,
                           color: AppColors.primary,
@@ -196,14 +196,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                         ),
                         StatCard(
-                          title: ' Categories',
+                          title: 'Total Categories',
                           value: _stats['total_categories'].toString(),
                           icon: Icons.category,
                           color: AppColors.warning,
                           onTap: null,
                         ),
                         StatCard(
-                          title: 'Transactions',
+                          title: 'Total Transactions',
                           value: _stats['total_transactions'].toString(),
                           icon: Icons.receipt_long,
                           color: AppColors.error,
@@ -216,7 +216,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             );
                           },
                         ),
-                        // Optional: Add a fourth stat card if needed
                         StatCard(
                           title: 'Active Users',
                           value: userProvider.activeUsersCount.toString(),
@@ -235,8 +234,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Quick Actions
+                    // Quick Actions - ADDED BACK
+                    Text(
+                      'Quick Actions',
+                      style: AppStyles.headline3,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildQuickActions(),
+                    const SizedBox(height: 24),
 
+                    // Recent Users - ADDED BACK
+                    _buildRecentUsers(userProvider),
+                    const SizedBox(height: 24),
+
+                    // System Info - ADDED BACK
+                    _buildSystemInfo(),
+                    const SizedBox(height: 24),
                   ],
                 ),
             ],
@@ -342,11 +355,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 'Recent Users',
                 style: AppStyles.headline3.copyWith(fontSize: 18),
               ),
-              Text(
-                '${userProvider.users.length} Total',
-                style: AppStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const UsersListScreen(),
+                    ),
+                  );
+                },
+                child: const Text('View All'),
               ),
             ],
           ),
